@@ -19,11 +19,19 @@ if (fs.existsSync(saPath)) {
   } catch (err) {
     console.error('Error parsing serviceAccountKey.json:', err.message || err);
   }
-} else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+} else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
   try {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    const decoded = Buffer.from(
+      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
+      'base64'
+    ).toString('utf8');
+
+    serviceAccount = JSON.parse(decoded);
   } catch (error) {
-    console.error('Error parsing FIREBASE_SERVICE_ACCOUNT_JSON:', error.message || error);
+    console.error(
+      'Error decoding FIREBASE_SERVICE_ACCOUNT_BASE64:',
+      error
+    );
   }
 }
 
