@@ -20,7 +20,6 @@ dotenv.config();
 
 const app = express();
 
-// Verify Firebase connection on startup
 try {
   await db.collection('_test').doc('_test').set({ test: true });
   console.log('✓ Firebase Firestore connected successfully');
@@ -35,7 +34,10 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Allow Vite dev server during local development
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    "http://localhost:5173",
+    "https://your-frontend-domain.onrender.com"
+  ],
   credentials: true
 }));
 
@@ -58,8 +60,6 @@ app.use('/api/upload', uploadRoutes);
 const frontendBuild = path.join(__dirname, 'public');
 app.use(express.static(frontendBuild));
 
-// Catch-all: return React's index.html for any non-API route
-// This lets React Router handle /login, /room/:id, etc.
 app.get('*', (req, res) => {
   const indexPath = path.join(frontendBuild, 'index.html');
   res.sendFile(indexPath, (err) => {
@@ -73,7 +73,6 @@ app.get('*', (req, res) => {
   });
 });
 
-// Error handling middleware (must be last)
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
