@@ -78,12 +78,23 @@ const CreateRoom = () => {
   };
 
   const handleLocationSelect = (location) => {
-    setSelectedLocation(location);
+    setSelectedLocation({ lat: location.lat, lng: location.lng });
+
+    // Auto-fill address details from reverse geocoding
+    const addr = location.address || {};
+
     setFormData((prev) => ({
       ...prev,
       location: {
         latitude: location.lat,
         longitude: location.lng
+      },
+      address: {
+        street: addr.road || addr.pedestrian || addr.suburb || '',
+        city: location.city !== 'Your Location' ? location.city : '',
+        state: addr.state || '',
+        zipCode: addr.postcode || '',
+        country: addr.country || ''
       }
     }));
   };

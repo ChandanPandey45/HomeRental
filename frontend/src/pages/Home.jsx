@@ -10,7 +10,7 @@ const Home = () => {
   const { isAuthenticated } = useAuth();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, setShowMap] = useState(false);
 
   const [filterFormData, setFilterFormData] = useState({
     keyword: '',
@@ -62,7 +62,7 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-[#f0f2f7] font-sans">
 
-       {/* HERO SECTION */}
+      {/* HERO SECTION */}
       <div
         className="relative w-full flex flex-col items-center justify-center text-white"
         style={{ minHeight: '440px', background: 'linear-gradient(135deg, #1a1a4e 0%, #2d3a8c 50%, #1e3a5f 100%)' }}
@@ -225,7 +225,7 @@ const Home = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-12">
             {rooms.map((room) => (
               <RoomCard key={room._id || room.id} room={room} />
             ))}

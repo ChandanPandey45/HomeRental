@@ -5,9 +5,10 @@ import { roomAPI, authAPI, uploadAPI } from '../services/api';
 import {
     FaBed, FaBath, FaRulerCombined, FaMapMarkerAlt,
     FaEdit, FaTrash, FaArrowLeft, FaCheckCircle, FaTimes, FaSave,
-    FaPhone, FaEnvelope, FaUser, FaCloudUploadAlt, FaChevronLeft, FaChevronRight, FaHome
+    FaPhone, FaEnvelope, FaUser, FaCloudUploadAlt, FaChevronLeft, FaChevronRight, FaHome, FaMap
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import MapComponent from '../components/Map/MapComponent';
 
 /* ─────────────────────────────────────────
    Contact Owner Modal
@@ -333,7 +334,7 @@ const RoomDetails = () => {
                 return {
                     ...prev,
                     images: merged,
-                    coverImage: prev.coverImage || merged[0] 
+                    coverImage: prev.coverImage || merged[0]
                 };
             });
             toast.success(`${newUrls.length} image(s) uploaded`);
@@ -600,10 +601,25 @@ const RoomDetails = () => {
                     </div>
                 </div>
 
-                {/* ── RIGHT COLUMN — Price + Panel ── */}
                 <div className="space-y-5">
 
-                    {/* Price Card */}
+                    {/* Location Map */}
+                    {!editMode && room.location && typeof room.location.latitude === 'number' && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+                                <FaMap className="text-indigo-500" size={14} />
+                                <span className="font-bold text-gray-800 text-sm">Location</span>
+                            </div>
+                            <div style={{ height: '220px' }}>
+                                <MapComponent
+                                    defaultCenter={{ lat: room.location.latitude, lng: room.location.longitude }}
+                                    rooms={[room]}
+                                    showRooms={true}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky top-20">
                         <div className="flex items-end gap-2 mb-1">
                             {editMode ? (

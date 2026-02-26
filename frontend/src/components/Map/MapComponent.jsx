@@ -63,7 +63,7 @@ function MapCenter({ center, zoom = 13 }) {
   return null;
 }
 
-// Reverse geocode lat/lng → city name using Nominatim (OpenStreetMap, free, no key needed)
+// Reverse geocode lat/lng → city name and full address using Nominatim (OpenStreetMap, free, no key needed)
 async function reverseGeocode(lat, lng) {
   try {
     const res = await fetch(
@@ -73,7 +73,7 @@ async function reverseGeocode(lat, lng) {
     const data = await res.json();
     const addr = data.address || {};
     // Prefer city > town > village > county > state, in that priority
-    return (
+    const city =
       addr.city ||
       addr.town ||
       addr.village ||
@@ -81,10 +81,11 @@ async function reverseGeocode(lat, lng) {
       addr.county ||
       addr.state_district ||
       addr.state ||
-      'Your Location'
-    );
+      'Your Location';
+
+    return { city, address: addr, fullData: data };
   } catch {
-    return 'Your Location';
+    return { city: 'Your Location', address: {}, fullData: null };
   }
 }
 
@@ -112,8 +113,8 @@ const MapComponent = ({
         const lng = pos.coords.longitude;
         setCenter({ lat, lng });
         // Reverse geocode to get city name
-        const city = await reverseGeocode(lat, lng);
-        setLocationName(city);
+        const geoData = await reverseGeocode(lat, lng);
+        setLocationName(geoData.city);
         setLocationLoading(false);
       },
       (err) => {
@@ -137,9 +138,9 @@ const MapComponent = ({
 
   const handleLocationSelect = async (newCenter) => {
     setCenter(newCenter);
-    const city = await reverseGeocode(newCenter.lat, newCenter.lng);
-    setLocationName(city);
-    if (onLocationSelect) onLocationSelect({ ...newCenter, cityName: city });
+    const geoData = await reverseGeocode(newCenter.lat, newCenter.lng);
+    setLocationName(geoData.city);
+    if (onLocationSelect) onLocationSelect({ ...newCenter, ...geoData });
   };
 
   return (
@@ -187,30 +188,63 @@ const MapComponent = ({
           const lng = room.location.longitude;
           return (
             <Marker key={room._id || room.id} position={[lat, lng]} icon={roomIcon}>
-              <Popup className="custom-popup">
-                <div className="w-56">
-                  {room.coverImage && (
+              <Popup className="custom-popup p-0 border-0 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="w-56 h-64 relative group cursor-pointer" onClick={() => window.location.href = `/room/${room.id || room._id}`}>
+
+                  {/* Background Image & Overlay */}
+                  <div className="absolute inset-0 bg-gray-200">
                     <img
-                      src={room.coverImage}
+                      src={room.coverImage || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=300&q=80'}
                       alt={room.title}
-                      className="w-full h-36 object-cover rounded-lg mb-2"
+                      className="w-full h-full object-cover transition-transform duration-700 ease-in-out group-hover:scale-110"
                       onError={(e) => { e.target.style.display = 'none'; }}
                     />
-                  )}
-                  <h3 className="font-bold text-base mb-1 line-clamp-2 text-gray-900">{room.title}</h3>
-                  <p className="text-gray-500 text-xs mb-2">
-                    📍 {room.address?.city}, {room.address?.state}
-                  </p>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-lg font-bold text-indigo-600">₹{room.price}<span className="text-xs font-normal text-gray-400">/mo</span></span>
-                    <span className="text-xs text-gray-500">{room.bedrooms} bed · {room.bathrooms} bath</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900/95 via-gray-900/50 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-100"></div>
                   </div>
-                  <a
-                    href={`/room/${room._id}`}
-                    className="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-colors"
-                  >
-                    View Details →
-                  </a>
+
+                  {/* Top Badges */}
+                  <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-10">
+                    {room.availability ? (
+                      <span className="bg-green-500/90 backdrop-blur-md text-white px-2 py-0.5 rounded-md text-[9px] font-bold uppercase shadow-sm flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-white animate-pulse"></span> Available
+                      </span>
+                    ) : (
+                      <span className="bg-red-500/90 backdrop-blur-md text-white px-2 py-0.5 rounded-md text-[9px] font-bold uppercase shadow-sm">
+                        Rented
+                      </span>
+                    )}
+
+                    {room.ratings && room.ratings.totalReviews > 0 && (
+                      <div className="bg-white/20 backdrop-blur-md border border-white/30 text-white px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+                        <span className="text-[10px]">⭐</span>
+                        <span className="text-[10px] font-bold">{room.ratings.averageRating?.toFixed(1) || '5.0'}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom Content */}
+                  <div className="absolute bottom-3 left-3 right-3 text-white z-10 flex flex-col justify-end h-full pointer-events-none">
+                    <div className="mb-2">
+                      <h3 className="text-sm font-extrabold line-clamp-2 leading-tight drop-shadow-md mb-1">{room.title}</h3>
+                      <p className="text-[10px] text-gray-300 flex items-center truncate drop-shadow-sm">
+                        📍 {room.address?.city || 'Unknown'}, {room.address?.state || ''}
+                      </p>
+                    </div>
+
+                    <div className="flex items-end justify-between border-t border-white/20 pt-2">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-gray-300 uppercase tracking-widest font-semibold mb-0.5">Rent</span>
+                        <span className="text-lg font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-white to-indigo-200">
+                          ₹{room.price}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-medium text-gray-300 flex gap-1.5 bg-white/10 px-2 py-1 rounded-md backdrop-blur-sm border border-white/10">
+                        <span>{room.bedrooms} 🛏️</span>
+                        <span className="w-px h-3 bg-white/30 self-center"></span>
+                        <span>{room.bathrooms} 🚿</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </Popup>
             </Marker>
