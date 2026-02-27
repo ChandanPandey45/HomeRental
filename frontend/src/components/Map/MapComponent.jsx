@@ -41,6 +41,22 @@ const roomIcon = L.divIcon({
   popupAnchor: [0, -10],
 });
 
+// Highlighted room marker (shown on hover)
+const roomIconHovered = L.divIcon({
+  className: '',
+  html: `<div style="
+    width:22px;height:22px;
+    background:#4f46e5;
+    border:3px solid white;
+    border-radius:50%;
+    box-shadow:0 0 0 5px rgba(79,70,229,0.3), 0 4px 10px rgba(0,0,0,0.4);
+    transition: all 0.2s;
+  "></div>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+  popupAnchor: [0, -14],
+});
+
 // Handles map click
 function MapClickHandler({ onLocationSelect }) {
   useMapEvents({
@@ -49,6 +65,19 @@ function MapClickHandler({ onLocationSelect }) {
       onLocationSelect({ lat, lng });
     },
   });
+  return null;
+}
+
+// Auto-pan to hovered room
+function HoverPan({ rooms, hoveredRoomId }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!hoveredRoomId) return;
+    const room = rooms.find(r => (r._id || r.id) === hoveredRoomId);
+    if (room && room.location && typeof room.location.latitude === 'number') {
+      map.flyTo([room.location.latitude, room.location.longitude], map.getZoom(), { duration: 0.8 });
+    }
+  }, [hoveredRoomId, rooms, map]);
   return null;
 }
 
@@ -94,6 +123,7 @@ const MapComponent = ({
   onLocationSelect = null,
   showRooms = true,
   rooms = [],
+  hoveredRoomId = null,
 }) => {
   const [center, setCenter] = useState(defaultCenter);
   const [locationName, setLocationName] = useState('Detecting location...');
@@ -170,6 +200,7 @@ const MapComponent = ({
 
         <MapClickHandler onLocationSelect={handleLocationSelect} />
         <MapCenter center={center} />
+        <HoverPan rooms={rooms} hoveredRoomId={hoveredRoomId} />
 
         {/* User location marker */}
         <Marker position={[center.lat, center.lng]} icon={userLocationIcon}>
@@ -186,8 +217,14 @@ const MapComponent = ({
           if (!room.location || typeof room.location.latitude !== 'number') return null;
           const lat = room.location.latitude;
           const lng = room.location.longitude;
+          const isHovered = (room._id || room.id) === hoveredRoomId;
           return (
-            <Marker key={room._id || room.id} position={[lat, lng]} icon={roomIcon}>
+            <Marker
+              key={room._id || room.id}
+              position={[lat, lng]}
+              icon={isHovered ? roomIconHovered : roomIcon}
+              zIndexOffset={isHovered ? 1000 : 0}
+            >
               <Popup className="custom-popup p-0 border-0 rounded-2xl overflow-hidden shadow-2xl">
                 <div className="w-56 h-64 relative group cursor-pointer" onClick={() => window.location.href = `/room/${room.id || room._id}`}>
 

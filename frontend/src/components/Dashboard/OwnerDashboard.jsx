@@ -20,7 +20,7 @@ const OwnerDashboard = () => {
       const response = await roomAPI.getRoomsByOwner();
       setRooms(response.data.rooms || []);
     } catch (error) {
-      toast.error('Failed to fetch rooms');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to fetch rooms');
     } finally {
       setLoading(false);
     }
@@ -36,7 +36,7 @@ const OwnerDashboard = () => {
       toast.success('Room listing deleted successfully');
       setRooms(rooms.filter(r => r._id !== roomId && r.id !== roomId));
     } catch (error) {
-      toast.error('Failed to delete room');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to delete room');
     }
   };
 

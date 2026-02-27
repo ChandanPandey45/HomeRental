@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { roomAPI } from '../services/api';
 import MapComponent from '../components/Map/MapComponent';
 import RoomCard from '../components/Room/RoomCard';
-import { FaSearch, FaMapMarkerAlt, FaDollarSign, FaBed, FaBath, FaMap, FaTimes } from 'react-icons/fa';
+import { FaSearch, FaMapMarkerAlt, FaDollarSign, FaBed, FaBath, FaMap, FaTimes, FaChevronUp } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const Home = () => {
@@ -11,6 +11,11 @@ const Home = () => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [hoveredRoomId, setHoveredRoomId] = useState(null);
+
+  // Scroll-hide search card
+  const [searchVisible, setSearchVisible] = useState(true);
+  const lastScrollY = useRef(0);
 
   const [filterFormData, setFilterFormData] = useState({
     keyword: '',
@@ -24,13 +29,29 @@ const Home = () => {
     fetchRooms();
   }, []);
 
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY < 100) {
+        setSearchVisible(true);
+      } else if (currentY > lastScrollY.current + 6) {
+        setSearchVisible(false);   // scrolling down
+      } else if (currentY < lastScrollY.current - 6) {
+        setSearchVisible(true);    // scrolling up
+      }
+      lastScrollY.current = currentY;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const fetchRooms = async (params = {}) => {
     try {
       setLoading(true);
       const response = await roomAPI.getAllRooms(params);
       setRooms(response.data.rooms || []);
     } catch (error) {
-      toast.error('Failed to fetch rooms');
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to fetch rooms');
     } finally {
       setLoading(false);
     }
@@ -98,17 +119,23 @@ const Home = () => {
         </div>
       </div>
 
-      {/* ─── SEARCH CARD  */}
-      <div className="relative z-20 px-4 lg:px-10 -mt-10">
+      {/* ─── SEARCH CARD (hides on scroll down, shows on scroll up) ── */}
+      <div
+        className={`sticky top-0 z-30 px-4 lg:px-10 transition-all duration-300 ease-in-out ${searchVisible
+          ? 'opacity-100 translate-y-0 pointer-events-auto'
+          : 'opacity-0 -translate-y-full pointer-events-none'
+          }`}
+        style={{ marginTop: '-48px' }}
+      >
         <form
           onSubmit={handleApplyFilters}
           className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-5"
         >
-          {/* Row 1: Inputs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {/* Row 1: 5 equal-proportion inputs */}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 mb-4">
 
             {/* Location/Keyword */}
-            <div className="col-span-2 md:col-span-1">
+            <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">🏙 City or Place</label>
               <div className="relative">
                 <FaMapMarkerAlt className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" size={13} />
@@ -117,20 +144,22 @@ const Home = () => {
                   name="keyword"
                   value={filterFormData.keyword}
                   onChange={handleFilterChange}
-                  placeholder="e.g. Mumbai, Lucknow..."
+                  placeholder="e.g. Mumbai..."
                   className="w-full pl-9 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
                 />
               </div>
             </div>
 
-            {/* Price */}
+            {/* Min Price */}
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">💰 Price Range</label>
-              <div className="flex gap-1 items-center">
-                <input type="number" name="minPrice" value={filterFormData.minPrice} onChange={handleFilterChange} placeholder="Min" className="w-full px-2 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
-                <span className="text-gray-400 text-sm px-1">–</span>
-                <input type="number" name="maxPrice" value={filterFormData.maxPrice} onChange={handleFilterChange} placeholder="Max" className="w-full px-2 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
-              </div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">💰 Min Price</label>
+              <input type="number" name="minPrice" value={filterFormData.minPrice} onChange={handleFilterChange} placeholder="Min ₹" className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
+            </div>
+
+            {/* Max Price */}
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 block">💰 Max Price</label>
+              <input type="number" name="maxPrice" value={filterFormData.maxPrice} onChange={handleFilterChange} placeholder="Max ₹" className="w-full px-3 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all" />
             </div>
 
             {/* Beds */}
@@ -180,23 +209,35 @@ const Home = () => {
               {hasActiveFilters ? 'Filtered results' : 'All available listings'}
             </p>
           </div>
-          <button
-            onClick={() => setShowMap(!showMap)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${showMap
-              ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-              : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600'
-              }`}
-          >
-            <FaMap size={13} /> {showMap ? 'Hide Map' : 'Show Map'}
-          </button>
+          <div className="flex items-center gap-2">
+            {!searchVisible && (
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-md hover:bg-indigo-700 transition-all"
+                title="Back to search"
+              >
+                <FaChevronUp size={12} /> Search
+              </button>
+            )}
+            <button
+              onClick={() => setShowMap(!showMap)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${showMap
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600'
+                }`}
+            >
+              <FaMap size={13} /> {showMap ? 'Hide Map' : 'Show Map'}
+            </button>
+          </div>
         </div>
 
         {/* ─── MAP ─── */}
         {showMap && (
-          <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-200" style={{ height: '520px' }}>
+          <div className="rounded-2xl overflow-hidden shadow-xl border border-gray-200 mb-6" style={{ height: '520px' }}>
             <MapComponent
               showRooms={true}
               rooms={rooms}
+              hoveredRoomId={hoveredRoomId}
             />
           </div>
         )}
@@ -227,7 +268,12 @@ const Home = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-12">
             {rooms.map((room) => (
-              <RoomCard key={room._id || room.id} room={room} />
+              <RoomCard
+                key={room._id || room.id}
+                room={room}
+                onHoverStart={() => setHoveredRoomId(room._id || room.id)}
+                onHoverEnd={() => setHoveredRoomId(null)}
+              />
             ))}
           </div>
         )}

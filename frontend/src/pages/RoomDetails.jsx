@@ -22,8 +22,8 @@ const ContactOwnerModal = ({ ownerId, onClose }) => {
             try {
                 const res = await authAPI.getUserById(ownerId);
                 setOwnerInfo(res.data?.user || res.data);
-            } catch {
-                toast.error('Could not load owner details');
+            } catch (err) {
+                toast.error(err?.response?.data?.message || 'Could not load owner details');
                 onClose();
             } finally {
                 setLoading(false);
@@ -262,14 +262,16 @@ const RoomDetails = () => {
             setRoom(r);
             setEditData(r);
             const ownerId = r?.owner?._id || r?.owner?.id || r?.ownerId || r?.owner;
-            const myId = user?._id || user?.id;
+            // user object from /auth/me has `uid` (Firebase UID) — this must match room.owner
+            const myId = user?.uid || user?.id || user?._id;
             setIsOwner(
                 isAuthenticated &&
-                user?.role === 'roomOwner' &&
+                (user?.role === 'roomOwner' || user?.role === 'admin') &&
                 String(ownerId) === String(myId)
             );
         } catch (error) {
-            toast.error('Failed to load room details');
+            const msg = error?.response?.data?.message || error?.message || 'Failed to load room details';
+            toast.error(msg);
             navigate('/');
         } finally {
             setLoading(false);
@@ -286,8 +288,9 @@ const RoomDetails = () => {
             setRoom(editData);
             setEditMode(false);
             toast.success('Room updated successfully! ✅');
-        } catch {
-            toast.error('Failed to save changes');
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Failed to save changes';
+            toast.error(msg);
         } finally {
             setSaving(false);
         }
@@ -299,8 +302,9 @@ const RoomDetails = () => {
             await roomAPI.deleteRoom(id);
             toast.success('Room deleted successfully');
             navigate('/my-rooms');
-        } catch {
-            toast.error('Failed to delete room');
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Failed to delete room';
+            toast.error(msg);
         }
     };
 
@@ -323,8 +327,9 @@ const RoomDetails = () => {
             try {
                 const res = await uploadAPI.uploadRoomImage(file);
                 newUrls.push(res.data.imageUrl);
-            } catch {
-                toast.error(`Failed to upload ${file.name}`);
+            } catch (err) {
+                const msg = err?.response?.data?.message || err?.message || `Failed to upload ${file.name}`;
+                toast.error(msg);
             }
         }
         if (newUrls.length) {
@@ -609,12 +614,16 @@ const RoomDetails = () => {
                             <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
                                 <FaMap className="text-indigo-500" size={14} />
                                 <span className="font-bold text-gray-800 text-sm">Location</span>
+                                <span className="ml-auto text-xs text-gray-400 font-medium">
+                                    {[room.address?.city, room.address?.state].filter(Boolean).join(', ')}
+                                </span>
                             </div>
-                            <div style={{ height: '220px' }}>
+                            <div style={{ height: '260px' }}>
                                 <MapComponent
                                     defaultCenter={{ lat: room.location.latitude, lng: room.location.longitude }}
                                     rooms={[room]}
                                     showRooms={true}
+                                    hoveredRoomId={room._id || room.id}
                                 />
                             </div>
                         </div>
