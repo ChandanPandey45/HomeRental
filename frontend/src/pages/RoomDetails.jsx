@@ -252,7 +252,31 @@ const RoomDetails = () => {
     // Contact owner modal
     const [showContactModal, setShowContactModal] = useState(false);
 
+    // Safely convert a Firestore Timestamp / Date / ISO string → 'YYYY-MM-DD' string
+    const toDateStr = (val) => {
+        if (!val) return '';
+        // Firestore Timestamp object: { seconds, nanoseconds }
+        if (val?.seconds) return new Date(val.seconds * 1000).toISOString().substring(0, 10);
+        // JS Date object
+        if (val instanceof Date) return val.toISOString().substring(0, 10);
+        // already a string
+        return String(val).substring(0, 10);
+    };
+
     useEffect(() => { fetchRoom(); }, [id]);
+
+    // Recalculate isOwner whenever room OR user resolves (fixes auth race condition)
+    useEffect(() => {
+        if (!room || !user) return;
+        const ownerId = room?.owner?._id || room?.owner?.id || room?.ownerId || room?.owner;
+        const myId = user?.uid || user?.id || user?._id;
+        setIsOwner(
+            isAuthenticated &&
+            (user?.role === 'roomOwner' || user?.role === 'admin') &&
+            !!myId &&
+            String(ownerId) === String(myId)
+        );
+    }, [room, user, isAuthenticated]);
 
     const fetchRoom = async () => {
         try {
@@ -260,15 +284,16 @@ const RoomDetails = () => {
             const res = await roomAPI.getRoomById(id);
             const r = res.data?.room || res.data;
             setRoom(r);
-            setEditData(r);
-            const ownerId = r?.owner?._id || r?.owner?.id || r?.ownerId || r?.owner;
-            // user object from /auth/me has `uid` (Firebase UID) — this must match room.owner
-            const myId = user?.uid || user?.id || user?._id;
-            setIsOwner(
-                isAuthenticated &&
-                (user?.role === 'roomOwner' || user?.role === 'admin') &&
-                String(ownerId) === String(myId)
-            );
+            // Normalize Firestore Timestamp fields so they're plain strings in editData
+            setEditData({
+                ...r,
+                availableFrom: toDateStr(r.availableFrom),
+                availableUntil: toDateStr(r.availableUntil),
+                amenities: Array.isArray(r.amenities) ? r.amenities : [],
+                images: Array.isArray(r.images) ? r.images : [],
+                rules: r.rules || {},
+            });
+            // isOwner is computed reactively in its own useEffect below
         } catch (error) {
             const msg = error?.response?.data?.message || error?.message || 'Failed to load room details';
             toast.error(msg);
@@ -654,7 +679,7 @@ const RoomDetails = () => {
                         {editMode && (
                             <div className="mt-4">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Available From</label>
-                                <input type="date" value={(editData.availableFrom || '').substring(0, 10)}
+                                <input type="date" value={toDateStr(editData.availableFrom)}
                                     onChange={(e) => handleEditChange('availableFrom', e.target.value)}
                                     className="w-full px-3 py-2.5 border-2 border-indigo-300 rounded-xl text-sm focus:outline-none focus:border-indigo-500 bg-indigo-50/50" />
                             </div>
